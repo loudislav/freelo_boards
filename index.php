@@ -32,6 +32,7 @@ foreach ($tasks as $t) {
 ?>
 <!doctype html>
 <html lang="cs">
+<script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
 <meta charset="utf-8">
 <title>Úkoly na tento a příští týden</title>
 <head>
@@ -45,7 +46,9 @@ foreach ($tasks as $t) {
         <p>Rozsah: <strong><?= h($dateFrom) ?></strong> – <strong><?= h($dateTo) ?></strong></p>
       </div>
       <div class="nav">
+        <a href="https://app.freelo.io" target="_blank" rel="noopener">Freelo</a>
         <a href="./shame">Deska hanby</a>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Přepnout tmavý/světlý režim">🌙</button>
       </div>
     </div>
 
@@ -59,5 +62,22 @@ foreach ($tasks as $t) {
       </section>
     <?php endif; ?>
   </main>
+  <script>
+  (function() {
+    var btn = document.getElementById('theme-toggle');
+    function isDark() {
+      var t = document.documentElement.getAttribute('data-theme');
+      return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    function update() { btn.textContent = isDark() ? '☀️' : '🌙'; }
+    btn.addEventListener('click', function() {
+      var next = isDark() ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      update();
+    });
+    update();
+  })();
+  </script>
 </body>
 </html>
