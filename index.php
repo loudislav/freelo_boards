@@ -20,7 +20,6 @@ $tasks = fetchAllTasks($api, [
   'due_date_range[date_to]'   => $dateTo,
 ]);
 
-// Volitelně: ještě “dofiltrovat” podle due_date_end, pokud existuje:
 $filtered = [];
 foreach ($tasks as $t) {
   $due = $t['due_date_end'] ?? $t['due_date'] ?? null;
@@ -29,6 +28,11 @@ foreach ($tasks as $t) {
   $ymd = $d->format('Y-m-d');
   if ($ymd >= $dateFrom && $ymd <= $dateTo) $filtered[] = $t;
 }
+
+$validSorts = ['deadline', 'assignee', 'tasklist'];
+$sort = in_array($_GET['sort'] ?? '', $validSorts) ? $_GET['sort'] : 'deadline';
+$dir  = ($_GET['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+$filtered = sortTasks($filtered, $sort, $dir);
 ?>
 <!doctype html>
 <html lang="cs">
@@ -56,6 +60,7 @@ foreach ($tasks as $t) {
     <?php if (empty($filtered)): ?>
       <p>Žádné nedokončené úkoly v tomto období 🎉</p>
     <?php else: ?>
+      <?php renderSortBar($sort, $dir); ?>
       <section class="task-list">
         <?php foreach ($filtered as $t): ?>
           <?php renderTaskCard($t, false); ?>

@@ -152,12 +152,52 @@ function filterTasksByAssignee(array $tasks, string $assignee): array {
   }));
 }
 
-function shameBoardAssigneeUrl(string $assignee): string {
-  return '?assignee=' . rawurlencode($assignee);
+function shameBoardAssigneeUrl(string $assignee, array $extra = []): string {
+  return '?' . http_build_query(array_merge($extra, ['assignee' => $assignee]));
 }
 
-function shameBoardUrl(): string {
-  return '?';
+function shameBoardUrl(array $extra = []): string {
+  return empty($extra) ? '?' : '?' . http_build_query($extra);
+}
+
+function sortTasks(array $tasks, string $by, string $dir): array {
+  usort($tasks, function ($a, $b) use ($by): int {
+    switch ($by) {
+      case 'assignee':
+        return strcasecmp(getTaskAssignee($a), getTaskAssignee($b));
+      case 'tasklist':
+        $ta = ($a['project']['name'] ?? '') . ($a['tasklist']['name'] ?? '');
+        $tb = ($b['project']['name'] ?? '') . ($b['tasklist']['name'] ?? '');
+        return strcasecmp($ta, $tb);
+      case 'completed':
+        return strcmp($a['date_edited_at'] ?? '', $b['date_edited_at'] ?? '');
+      default: // deadline
+        $da = $a['due_date_end'] ?? $a['due_date'] ?? '';
+        $db = $b['due_date_end'] ?? $b['due_date'] ?? '';
+        if ($da === $db) return 0;
+        if ($da === '') return 1;  // no deadline → always last
+        if ($db === '') return -1;
+        return strcmp($da, $db);
+    }
+  });
+  if ($dir === 'desc') $tasks = array_reverse($tasks);
+  return $tasks;
+}
+
+function renderSortBar(string $currentSort, string $currentDir, array $extra = [], array $cols = []): void {
+  if (empty($cols)) {
+    $cols = ['deadline' => 'Deadline', 'assignee' => 'Řešitel', 'tasklist' => 'To-Do list'];
+  }
+  echo '<div class="sort-bar"><span>Seřadit:</span>';
+  foreach ($cols as $field => $label) {
+    $active = $currentSort === $field;
+    $newDir = ($active && $currentDir === 'asc') ? 'desc' : 'asc';
+    $arrow  = $active ? ($currentDir === 'asc' ? ' ↑' : ' ↓') : '';
+    $url    = '?' . http_build_query(array_merge($extra, ['sort' => $field, 'dir' => $newDir]));
+    $class  = 'sort-link' . ($active ? ' active' : '');
+    echo '<a href="' . h($url) . '" class="' . $class . '">' . h($label . $arrow) . '</a>';
+  }
+  echo '</div>';
 }
 
 function getTaskUrl(array $task): ?string {

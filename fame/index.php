@@ -33,6 +33,11 @@ $leaderboard = array_values(array_filter(
   getShameLeaderboard($weekTasks),
   fn($r) => $r['name'] !== 'Bez řešitele'
 ));
+
+$validSorts = ['completed', 'assignee', 'tasklist'];
+$sort = in_array($_GET['sort'] ?? '', $validSorts) ? $_GET['sort'] : 'completed';
+$dir  = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+$weekTasks = sortTasks($weekTasks, $sort, $dir);
 ?>
 <!doctype html>
 <html lang="cs">
@@ -202,6 +207,7 @@ $leaderboard = array_values(array_filter(
         <?php if (empty($weekTasks)): ?>
           <p>Minulý týden nebyl splněn žádný úkol. Hanba! 😤</p>
         <?php else: ?>
+          <?php renderSortBar($sort, $dir, [], ['completed' => 'Datum splnění', 'assignee' => 'Řešitel', 'tasklist' => 'To-Do list']); ?>
           <div class="task-list">
             <?php foreach ($weekTasks as $t):
               $worker  = getTaskAssignee($t);

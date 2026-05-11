@@ -30,8 +30,15 @@ foreach ($tasks as $t) {
 }
 $selectedAssignee = trim((string)($_GET['assignee'] ?? ''));
 
-$leaderboard = getShameLeaderboard($overdue);
-$visibleOverdue = filterTasksByAssignee($overdue, $selectedAssignee);
+$validSorts = ['deadline', 'assignee', 'tasklist'];
+$sort = in_array($_GET['sort'] ?? '', $validSorts) ? $_GET['sort'] : 'deadline';
+$dir  = ($_GET['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+
+$leaderboard    = getShameLeaderboard($overdue);
+$visibleOverdue = sortTasks(filterTasksByAssignee($overdue, $selectedAssignee), $sort, $dir);
+
+// Extra params to carry sort through assignee filter links
+$sortParams = ['sort' => $sort, 'dir' => $dir];
 ?>
 <!doctype html>
 <html lang="cs">
@@ -66,7 +73,7 @@ $visibleOverdue = filterTasksByAssignee($overdue, $selectedAssignee);
         <strong><?= h($selectedAssignee) ?></strong>
       </div>
 
-      <a href="<?= h(shameBoardUrl()) ?>">
+      <a href="<?= h(shameBoardUrl($sortParams)) ?>">
         Zrušit filtr
       </a>
     </div>
@@ -79,6 +86,8 @@ $visibleOverdue = filterTasksByAssignee($overdue, $selectedAssignee);
       <p>Nic po deadlinu. Krása ✨</p>
     <?php endif; ?>
   <?php else: ?>
+    <?php $assigneeExtra = $selectedAssignee !== '' ? array_merge($sortParams, ['assignee' => $selectedAssignee]) : $sortParams; ?>
+    <?php renderSortBar($sort, $dir, $assigneeExtra); ?>
     <section class="task-list">
       <?php foreach ($visibleOverdue as $t): ?>
         <?php renderTaskCard($t, true); ?>
@@ -110,7 +119,7 @@ $visibleOverdue = filterTasksByAssignee($overdue, $selectedAssignee);
                     <td>
   <a
     class="assignee-filter-link <?= $selectedAssignee === $row['name'] ? 'active' : '' ?>"
-    href="<?= h(shameBoardAssigneeUrl($row['name'])) ?>"
+    href="<?= h(shameBoardAssigneeUrl($row['name'], $sortParams)) ?>"
   >
     <?= $index === 0 ? '👑 ' : '' ?>
     <?= h($row['name']) ?>
