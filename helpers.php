@@ -1,6 +1,14 @@
 <?php
 // helpers.php
 
+function previousWeekRange(string $tz = 'Europe/Prague'): array {
+  $now     = new DateTimeImmutable('now', new DateTimeZone($tz));
+  $weekday = (int)$now->format('N'); // 1=Mon … 7=Sun
+  $monday  = $now->modify('-' . ($weekday + 6) . ' days');
+  $sunday  = $monday->modify('+6 days');
+  return [$monday->format('Y-m-d'), $sunday->format('Y-m-d')];
+}
+
 function todayYmd(string $tz = 'Europe/Prague'): string {
   $dt = new DateTimeImmutable('now', new DateTimeZone($tz));
   return $dt->format('Y-m-d');

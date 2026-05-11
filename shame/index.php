@@ -51,6 +51,7 @@ $visibleOverdue = filterTasksByAssignee($overdue, $selectedAssignee);
 
       <div class="nav">
         <a href="https://app.freelo.io" target="_blank" rel="noopener">Freelo</a>
+        <a href="../fame">Deska vítězů</a>
         <a href="../index.php">Úkoly na tento a příští týden</a>
         <button class="theme-toggle" id="theme-toggle" aria-label="Přepnout tmavý/světlý režim">🌙</button>
       </div>
