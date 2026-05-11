@@ -47,33 +47,47 @@ function getStateIdByName(FreeloClient $api, string $stateName): int {
  * U all-tasks je v těle obvykle data.tasks.
  */
 function fetchAllTasks(FreeloClient $api, array $query): array {
-  $all = [];
-  $page = 0;
-  $perPage = 100;
+  $dateFrom = $query['due_date_range[date_from]'] ?? null;
+  $dateTo   = $query['due_date_range[date_to]']   ?? null;
 
-  while (true) {
-    $q = $query + ['page' => $page, 'per_page' => $perPage];
-    $res = $api->get('/all-tasks', $q);
-
+  if ($dateFrom === null || $dateTo === null) {
+    $res   = $api->get('/all-tasks', $query);
     $tasks = $res['data']['tasks'] ?? $res['tasks'] ?? [];
-    if (!is_array($tasks)) $tasks = [];
-
-    $all = array_merge($all, $tasks);
-
-    $count = (int)($res['count'] ?? count($tasks));
-    $total = (int)($res['total'] ?? count($all));
-    $pageFromApi = (int)($res['page'] ?? $page);
-
-    // Když API neposkytuje total, ukončíme při prázdné stránce.
-    if ($count === 0) break;
-
-    // Pokud total existuje a už ho máme, končíme.
-    if ($total > 0 && count($all) >= $total) break;
-
-    $page = $pageFromApi + 1;
+    return is_array($tasks) ? $tasks : [];
   }
 
-  return $all;
+  $base = $query;
+  unset($base['due_date_range[date_from]'], $base['due_date_range[date_to]']);
+
+  return fetchTasksInDateRange($api, $base, $dateFrom, $dateTo);
+}
+
+// The Freelo /all-tasks API is capped at 100 results and ignores pagination
+// parameters. To get all tasks, we split the date range in half whenever we
+// hit the cap and recurse until each slice fits under 100.
+function fetchTasksInDateRange(FreeloClient $api, array $base, string $from, string $to): array {
+  if ($from > $to) return [];
+
+  $res   = $api->get('/all-tasks', $base + [
+    'due_date_range[date_from]' => $from,
+    'due_date_range[date_to]'   => $to,
+  ]);
+  $tasks = $res['data']['tasks'] ?? $res['tasks'] ?? [];
+  if (!is_array($tasks)) $tasks = [];
+  $total = (int)($res['total'] ?? count($tasks));
+
+  if (count($tasks) < 100 || count($tasks) >= $total || $from === $to) {
+    return $tasks;
+  }
+
+  $midTs = intdiv(strtotime($from) + strtotime($to), 2);
+  $mid   = date('Y-m-d', $midTs);
+  $next  = date('Y-m-d', strtotime($mid . ' +1 day'));
+
+  return array_merge(
+    fetchTasksInDateRange($api, $base, $from, $mid),
+    fetchTasksInDateRange($api, $base, $next, $to)
+  );
 }
 
 function h(?string $value): string {
