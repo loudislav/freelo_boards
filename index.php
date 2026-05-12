@@ -20,7 +20,6 @@ $tasks = fetchAllTasks($api, [
   'due_date_range[date_to]'   => $dateTo,
 ]);
 
-// Volitelně: ještě “dofiltrovat” podle due_date_end, pokud existuje:
 $filtered = [];
 foreach ($tasks as $t) {
   $due = $t['due_date_end'] ?? $t['due_date'] ?? null;
@@ -29,9 +28,15 @@ foreach ($tasks as $t) {
   $ymd = $d->format('Y-m-d');
   if ($ymd >= $dateFrom && $ymd <= $dateTo) $filtered[] = $t;
 }
+
+$validSorts = ['deadline', 'assignee', 'tasklist'];
+$sort = in_array($_GET['sort'] ?? '', $validSorts) ? $_GET['sort'] : 'deadline';
+$dir  = ($_GET['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+$filtered = sortTasks($filtered, $sort, $dir);
 ?>
 <!doctype html>
 <html lang="cs">
+<script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
 <meta charset="utf-8">
 <title>Úkoly na tento a příští týden</title>
 <head>
@@ -45,13 +50,17 @@ foreach ($tasks as $t) {
         <p>Rozsah: <strong><?= h($dateFrom) ?></strong> – <strong><?= h($dateTo) ?></strong></p>
       </div>
       <div class="nav">
+        <a href="https://app.freelo.io" target="_blank" rel="noopener">Freelo</a>
+        <a href="./fame">Deska vítězů</a>
         <a href="./shame">Deska hanby</a>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Přepnout tmavý/světlý režim">🌙</button>
       </div>
     </div>
 
     <?php if (empty($filtered)): ?>
       <p>Žádné nedokončené úkoly v tomto období 🎉</p>
     <?php else: ?>
+      <?php renderSortBar($sort, $dir); ?>
       <section class="task-list">
         <?php foreach ($filtered as $t): ?>
           <?php renderTaskCard($t, false); ?>
@@ -59,5 +68,22 @@ foreach ($tasks as $t) {
       </section>
     <?php endif; ?>
   </main>
+  <script>
+  (function() {
+    var btn = document.getElementById('theme-toggle');
+    function isDark() {
+      var t = document.documentElement.getAttribute('data-theme');
+      return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    function update() { btn.textContent = isDark() ? '☀️' : '🌙'; }
+    btn.addEventListener('click', function() {
+      var next = isDark() ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      update();
+    });
+    update();
+  })();
+  </script>
 </body>
 </html>

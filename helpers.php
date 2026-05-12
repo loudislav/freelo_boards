@@ -1,6 +1,14 @@
 <?php
 // helpers.php
 
+function previousWeekRange(string $tz = 'Europe/Prague'): array {
+  $now     = new DateTimeImmutable('now', new DateTimeZone($tz));
+  $weekday = (int)$now->format('N'); // 1=Mon … 7=Sun
+  $monday  = $now->modify('-' . ($weekday + 6) . ' days');
+  $sunday  = $monday->modify('+6 days');
+  return [$monday->format('Y-m-d'), $sunday->format('Y-m-d')];
+}
+
 function todayYmd(string $tz = 'Europe/Prague'): string {
   $dt = new DateTimeImmutable('now', new DateTimeZone($tz));
   return $dt->format('Y-m-d');
@@ -47,33 +55,47 @@ function getStateIdByName(FreeloClient $api, string $stateName): int {
  * U all-tasks je v těle obvykle data.tasks.
  */
 function fetchAllTasks(FreeloClient $api, array $query): array {
-  $all = [];
-  $page = 0;
-  $perPage = 100;
+  $dateFrom = $query['due_date_range[date_from]'] ?? null;
+  $dateTo   = $query['due_date_range[date_to]']   ?? null;
 
-  while (true) {
-    $q = $query + ['page' => $page, 'per_page' => $perPage];
-    $res = $api->get('/all-tasks', $q);
-
+  if ($dateFrom === null || $dateTo === null) {
+    $res   = $api->get('/all-tasks', $query);
     $tasks = $res['data']['tasks'] ?? $res['tasks'] ?? [];
-    if (!is_array($tasks)) $tasks = [];
-
-    $all = array_merge($all, $tasks);
-
-    $count = (int)($res['count'] ?? count($tasks));
-    $total = (int)($res['total'] ?? count($all));
-    $pageFromApi = (int)($res['page'] ?? $page);
-
-    // Když API neposkytuje total, ukončíme při prázdné stránce.
-    if ($count === 0) break;
-
-    // Pokud total existuje a už ho máme, končíme.
-    if ($total > 0 && count($all) >= $total) break;
-
-    $page = $pageFromApi + 1;
+    return is_array($tasks) ? $tasks : [];
   }
 
-  return $all;
+  $base = $query;
+  unset($base['due_date_range[date_from]'], $base['due_date_range[date_to]']);
+
+  return fetchTasksInDateRange($api, $base, $dateFrom, $dateTo);
+}
+
+// The Freelo /all-tasks API is capped at 100 results and ignores pagination
+// parameters. To get all tasks, we split the date range in half whenever we
+// hit the cap and recurse until each slice fits under 100.
+function fetchTasksInDateRange(FreeloClient $api, array $base, string $from, string $to): array {
+  if ($from > $to) return [];
+
+  $res   = $api->get('/all-tasks', $base + [
+    'due_date_range[date_from]' => $from,
+    'due_date_range[date_to]'   => $to,
+  ]);
+  $tasks = $res['data']['tasks'] ?? $res['tasks'] ?? [];
+  if (!is_array($tasks)) $tasks = [];
+  $total = (int)($res['total'] ?? count($tasks));
+
+  if (count($tasks) < 100 || count($tasks) >= $total || $from === $to) {
+    return $tasks;
+  }
+
+  $midTs = intdiv(strtotime($from) + strtotime($to), 2);
+  $mid   = date('Y-m-d', $midTs);
+  $next  = date('Y-m-d', strtotime($mid . ' +1 day'));
+
+  return array_merge(
+    fetchTasksInDateRange($api, $base, $from, $mid),
+    fetchTasksInDateRange($api, $base, $next, $to)
+  );
 }
 
 function h(?string $value): string {
@@ -130,12 +152,52 @@ function filterTasksByAssignee(array $tasks, string $assignee): array {
   }));
 }
 
-function shameBoardAssigneeUrl(string $assignee): string {
-  return '?assignee=' . rawurlencode($assignee);
+function shameBoardAssigneeUrl(string $assignee, array $extra = []): string {
+  return '?' . http_build_query(array_merge($extra, ['assignee' => $assignee]));
 }
 
-function shameBoardUrl(): string {
-  return '?';
+function shameBoardUrl(array $extra = []): string {
+  return empty($extra) ? '?' : '?' . http_build_query($extra);
+}
+
+function sortTasks(array $tasks, string $by, string $dir): array {
+  usort($tasks, function ($a, $b) use ($by): int {
+    switch ($by) {
+      case 'assignee':
+        return strcasecmp(getTaskAssignee($a), getTaskAssignee($b));
+      case 'tasklist':
+        $ta = ($a['project']['name'] ?? '') . ($a['tasklist']['name'] ?? '');
+        $tb = ($b['project']['name'] ?? '') . ($b['tasklist']['name'] ?? '');
+        return strcasecmp($ta, $tb);
+      case 'completed':
+        return strcmp($a['date_edited_at'] ?? '', $b['date_edited_at'] ?? '');
+      default: // deadline
+        $da = $a['due_date_end'] ?? $a['due_date'] ?? '';
+        $db = $b['due_date_end'] ?? $b['due_date'] ?? '';
+        if ($da === $db) return 0;
+        if ($da === '') return 1;  // no deadline → always last
+        if ($db === '') return -1;
+        return strcmp($da, $db);
+    }
+  });
+  if ($dir === 'desc') $tasks = array_reverse($tasks);
+  return $tasks;
+}
+
+function renderSortBar(string $currentSort, string $currentDir, array $extra = [], array $cols = []): void {
+  if (empty($cols)) {
+    $cols = ['deadline' => 'Deadline', 'assignee' => 'Řešitel', 'tasklist' => 'To-Do list'];
+  }
+  echo '<div class="sort-bar"><span>Seřadit:</span>';
+  foreach ($cols as $field => $label) {
+    $active = $currentSort === $field;
+    $newDir = ($active && $currentDir === 'asc') ? 'desc' : 'asc';
+    $arrow  = $active ? ($currentDir === 'asc' ? ' ↑' : ' ↓') : '';
+    $url    = '?' . http_build_query(array_merge($extra, ['sort' => $field, 'dir' => $newDir]));
+    $class  = 'sort-link' . ($active ? ' active' : '');
+    echo '<a href="' . h($url) . '" class="' . $class . '">' . h($label . $arrow) . '</a>';
+  }
+  echo '</div>';
 }
 
 function getTaskUrl(array $task): ?string {

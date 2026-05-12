@@ -6,12 +6,14 @@ class FreeloClient {
   private string $email;
   private string $apiKey;
   private string $userAgent;
+  private bool   $sslVerify;
 
   public function __construct(array $cfg) {
     $this->baseUrl   = rtrim($cfg['base_url'], '/');
     $this->email     = $cfg['email'];
     $this->apiKey    = $cfg['api_key'];
     $this->userAgent = $cfg['user_agent'];
+    $this->sslVerify = $cfg['ssl_verify'] ?? true;
   }
 
   public function get(string $path, array $query = []): array {
@@ -23,12 +25,14 @@ class FreeloClient {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
       CURLOPT_RETURNTRANSFER => true,
-      CURLOPT_USERPWD => $this->email . ':' . $this->apiKey,
-      CURLOPT_HTTPHEADER => [
+      CURLOPT_USERPWD        => $this->email . ':' . $this->apiKey,
+      CURLOPT_HTTPHEADER     => [
         'User-Agent: ' . $this->userAgent,
         'Accept: application/json',
       ],
-      CURLOPT_TIMEOUT => 30,
+      CURLOPT_TIMEOUT        => 30,
+      CURLOPT_SSL_VERIFYPEER => $this->sslVerify,
+      CURLOPT_SSL_VERIFYHOST => $this->sslVerify ? 2 : 0,
     ]);
 
     $body = curl_exec($ch);

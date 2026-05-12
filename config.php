@@ -8,8 +8,9 @@
 $env = parse_ini_file('.env');
 
 return [
-  'email' => $env["FREEL0_EMAIL"] ?: 'YOUR_EMAIL',
-  'api_key' => $env["FREEL0_API_KEY"] ?: 'YOUR_API_KEY',
-  'user_agent' => $env["FREEL0_UA"] ?: 'DeskaHanby/1.0 (YOUR_EMAIL)',
-  'base_url' => 'https://api.freelo.io/v1',
+  'email'      => $env["FREEL0_EMAIL"]      ?: 'YOUR_EMAIL',
+  'api_key'    => $env["FREEL0_API_KEY"]    ?: 'YOUR_API_KEY',
+  'user_agent' => $env["FREEL0_UA"]         ?: 'DeskaHanby/1.0 (YOUR_EMAIL)',
+  'base_url'   => 'https://api.freelo.io/v1',
+  'ssl_verify' => filter_var($env["FREEL0_SSL_VERIFY"] ?? 'true', FILTER_VALIDATE_BOOLEAN),
 ];
