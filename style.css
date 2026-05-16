@@ -203,11 +203,41 @@ h1 {
 
 .task-link {
   margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .task-link a {
   color: var(--accent-blue);
   font-weight: 600;
+}
+
+.btn-complete {
+  padding: 5px 14px;
+  background: #22c55e;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-complete:hover {
+  background: #16a34a;
+}
+
+.btn-complete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@keyframes fire-burst {
+  0%   { transform: translate(0, 0) scale(1.4); opacity: 1; }
+  100% { transform: translate(var(--fire-tx), var(--fire-ty)) scale(0.1); opacity: 0; }
 }
 
 .shame-layout {
