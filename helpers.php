@@ -217,7 +217,7 @@ function getTaskUrl(array $task): ?string {
   return null;
 }
 
-function renderTaskCard(array $t, bool $overdue = false): void {
+function renderTaskCard(array $t, bool $overdue = false, bool $showCompleteBtn = false): void {
   $due = $t['due_date_end'] ?? $t['due_date'] ?? null;
   $project = $t['project']['name'] ?? '';
   $tasklist = $t['tasklist']['name'] ?? '';
@@ -250,13 +250,18 @@ function renderTaskCard(array $t, bool $overdue = false): void {
       </div>
     <?php endif; ?>
 
-    <?php if ($url): ?>
-      <div class="task-link">
+    <div class="task-link">
+      <?php if ($url): ?>
         <a href="<?= h($url) ?>" target="_blank" rel="noopener">
           Otevřít ve Freelu →
         </a>
-      </div>
-    <?php endif; ?>
+      <?php endif; ?>
+      <?php if ($showCompleteBtn && !empty($t['id'])): ?>
+        <button class="btn-complete" data-task-id="<?= h((string)$t['id']) ?>">
+          ✓ Hotovo
+        </button>
+      <?php endif; ?>
+    </div>
   </article>
   <?php
 }
